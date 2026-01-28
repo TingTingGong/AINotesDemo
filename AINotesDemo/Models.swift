@@ -73,6 +73,7 @@ struct ChatCompletionResponse: Codable {
     let choices: [Choice]
     
     struct Choice: Codable {
+        let title: String
         let message: ChatMessage
     }
 }

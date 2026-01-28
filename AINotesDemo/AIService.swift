@@ -28,6 +28,12 @@ enum AIServiceError: LocalizedError {
     }
 }
 
+struct AISummaryResult {
+    let title: String
+    let summary: String
+    let tags: [String]
+}
+
 class AIService {
     static let shared = AIService()
     private init() {}
@@ -89,7 +95,7 @@ class AIService {
     }
     
     // MARK: - GPT 生成摘要
-    func generateSummaryWithGPT(content: String) async throws -> (summary: String, tags: [String]) {
+    func generateSummaryWithGPT(content: String) async throws -> AISummaryResult {
         guard !APIConfig.openAIKey.isEmpty && APIConfig.openAIKey != "YOUR_OPENAI_API_KEY" else {
             throw AIServiceError.invalidAPIKey
         }
@@ -101,21 +107,23 @@ class AIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let prompt = """
-        请分析以下笔记内容，生成一个简洁的摘要和相关标签。
-        
-        要求：
-        1. 摘要：用1-3句话概括核心内容，不超过150字
-        2. 标签：提取3-5个关键词标签
-        3. 输出格式必须严格遵循JSON格式：{"summary": "摘要内容", "tags": ["标签1", "标签2", "标签3"]}
-        
-        笔记内容：
+        Analyze the following note and generate a concise title, summary, and relevant tags.
+
+        Requirements:
+        1. Title: A short, clear title that captures the main idea (max 15 words).
+        2. Summary: 1–3 sentences summarizing the core content (max 150 words).
+        3. Tags: Extract 3–5 relevant keyword tags.
+        4. Output format MUST be valid JSON exactly as follows:
+        {"title": "Title text", "summary": "Summary text", "tags": ["tag1", "tag2", "tag3"]}
+
+        Note content:
         \(content)
         """
         
         let chatRequest = ChatCompletionRequest(
             model: APIConfig.currentModel.rawValue,
             messages: [
-                ChatMessage(role: "system", content: "你是一个专业的笔记助手，擅长提取要点和生成摘要。"),
+                ChatMessage(role: "system", content: "You are a professional note assistant skilled at extracting key points and generating concise summaries."),
                 ChatMessage(role: "user", content: prompt)
             ],
             temperature: 0.7,
@@ -148,7 +156,7 @@ class AIService {
     }
     
     // MARK: - Gemini 生成摘要
-    func generateSummaryWithGemini(content: String) async throws -> (summary: String, tags: [String]) {
+    func generateSummaryWithGemini(content: String) async throws -> AISummaryResult {
         guard !APIConfig.geminiKey.isEmpty && APIConfig.geminiKey != "YOUR_GEMINI_API_KEY" else {
             throw AIServiceError.invalidAPIKey
         }
@@ -163,16 +171,19 @@ class AIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let prompt = """
-        请分析以下笔记内容，生成一个简洁的摘要和相关标签。
-        
-        要求：
-        1. 摘要：用1-3句话概括核心内容，不超过150字
-        2. 标签：提取3-5个关键词标签
-        3. 输出格式必须严格遵循JSON格式：{"summary": "摘要内容", "tags": ["标签1", "标签2", "标签3"]}
-        
-        笔记内容：
+        Analyze the following note and generate a concise title, summary, and relevant tags.
+
+        Requirements:
+        1. Title: A short, clear title that captures the main idea (max 15 words).
+        2. Summary: 1–3 sentences summarizing the core content (max 150 words).
+        3. Tags: Extract 3–5 relevant keyword tags.
+        4. Output format MUST be valid JSON exactly as follows:
+        {"title": "Title text", "summary": "Summary text", "tags": ["tag1", "tag2", "tag3"]}
+
+        Note content:
         \(content)
         """
+
         
         let geminiRequest = GeminiRequest(
             contents: [
@@ -210,41 +221,45 @@ class AIService {
     }
     
     // MARK: - 解析AI响应
-    private func parseAIResponse(_ response: String) throws -> (summary: String, tags: [String]) {
-        // 尝试提取JSON部分
+    private func parseAIResponse(_ response: String) throws -> AISummaryResult {
         var jsonString = response
-        
-        // 移除可能的markdown代码块标记
+
         if let startRange = response.range(of: "```json") {
             jsonString = String(response[startRange.upperBound...])
         }
         if let endRange = jsonString.range(of: "```") {
             jsonString = String(jsonString[..<endRange.lowerBound])
         }
-        
-        // 查找第一个{和最后一个}
+
         if let firstBrace = jsonString.firstIndex(of: "{"),
            let lastBrace = jsonString.lastIndex(of: "}") {
             jsonString = String(jsonString[firstBrace...lastBrace])
         }
-        
+
         jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         guard let jsonData = jsonString.data(using: .utf8) else {
             throw AIServiceError.invalidResponse
         }
-        
+
         struct AIResult: Codable {
+            let title: String
             let summary: String
             let tags: [String]
         }
-        
+
         let result = try JSONDecoder().decode(AIResult.self, from: jsonData)
-        return (result.summary, result.tags)
+
+        return AISummaryResult(
+            title: result.title,
+            summary: result.summary,
+            tags: result.tags
+        )
     }
+
     
     // MARK: - 统一生成摘要接口
-    func generateSummary(content: String, useModel: APIConfig.AIModel? = nil) async throws -> (summary: String, tags: [String]) {
+    func generateSummary(content: String, useModel: APIConfig.AIModel? = nil) async throws -> AISummaryResult {
         let model = useModel ?? APIConfig.currentModel
         
         switch model {

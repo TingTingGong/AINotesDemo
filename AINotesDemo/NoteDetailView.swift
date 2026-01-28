@@ -6,6 +6,29 @@
 import SwiftUI
 import SwiftData
 
+//让 String 可 Identifiable（一次性）
+extension String: @retroactive Identifiable {
+    public var id: String { self }
+}
+
+
+struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIActivityViewController,
+        context: Context
+    ) {}
+}
+
+
 struct NoteDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var note: Note
@@ -16,6 +39,9 @@ struct NoteDetailView: View {
     @State private var editedContent: String = ""
     @State private var editedSummary: String = ""
     @State private var showDeleteAlert = false
+    
+    @State private var showShare = false
+    @State private var shareText: String?
     
     var body: some View {
         NavigationStack {
@@ -76,7 +102,9 @@ struct NoteDetailView: View {
                         
                         Divider()
                         
-                        Button(action: shareNote) {
+                        Button {
+                            shareText = buildShareText()
+                        } label: {
                             Label("分享", systemImage: "square.and.arrow.up")
                         }
                     } label: {
@@ -92,8 +120,11 @@ struct NoteDetailView: View {
             } message: {
                 Text("确定要删除这条笔记吗？此操作无法撤销。")
             }
+        }.sheet(item: $shareText) { text in
+            ActivityView(activityItems: [text])
         }
     }
+    
     
     // MARK: - 标题部分
     private var titleSection: some View {
@@ -194,6 +225,21 @@ struct NoteDetailView: View {
         }
     }
     
+    private func generateTitle(from content: String) -> String {
+        let words = content.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        if words.count > 5 {
+            return words.prefix(5).joined(separator: " ") + "..."
+        } else if !words.isEmpty {
+            return words.joined(separator: " ")
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            return "笔记 \(formatter.string(from: Date()))"
+        }
+    }
+    
     // MARK: - 元数据部分
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -236,29 +282,18 @@ struct NoteDetailView: View {
         dismiss()
     }
     
-    private func shareNote() {
-        let text = """
-        \(note.title)
-        
-        \(note.summary ?? "")
-        
-        \(note.content)
-        
-        ---
-        创建于 \(note.timestamp.formatted())
-        """
-        
-        let activityVC = UIActivityViewController(
-            activityItems: [text],
-            applicationActivities: nil
-        )
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first,
-           let rootVC = window.rootViewController {
-            rootVC.present(activityVC, animated: true)
-        }
-    }
+    private func buildShareText() -> String {
+                    """
+                    \(note.title)
+
+                    \(note.summary ?? "")
+
+                    \(note.content)
+
+                    ---
+                    Created at \(note.timestamp.formatted())
+                    """
+                }
 }
 
 // MARK: - FlowLayout 自定义布局
