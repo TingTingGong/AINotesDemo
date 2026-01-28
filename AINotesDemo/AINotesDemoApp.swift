@@ -27,6 +27,8 @@ struct ContentView: View {
     @State private var showingRecorder = false
     @State private var selectedNote: Note?
     
+    @State private var searchText = ""
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -49,6 +51,11 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("AI Notes")
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "搜索笔记标题、内容、标签"
+            )
             .sheet(isPresented: $showingRecorder) {
                 RecordingView(modelContext: modelContext)
             }
@@ -77,18 +84,30 @@ struct ContentView: View {
     
     // 笔记列表
     private var notesList: some View {
-        List {
-            ForEach(notes) { note in
-                NoteRowView(note: note)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedNote = note
+        Group {
+            if filteredNotes.isEmpty {
+                searchEmptyView
+            } else {
+                List {
+                    ForEach(filteredNotes) { note in
+                        NoteRowView(note: note)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedNote = note
+                            }
                     }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            let note = filteredNotes[index]
+                            modelContext.delete(note)
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
             }
-            .onDelete(perform: deleteNotes)
         }
-        .listStyle(.insetGrouped)
     }
+
     
     // 录音按钮
     private var recordButton: some View {
@@ -110,9 +129,43 @@ struct ContentView: View {
     // 删除笔记
     private func deleteNotes(at offsets: IndexSet) {
         for index in offsets {
+            let note = filteredNotes[index]
             modelContext.delete(notes[index])
         }
     }
+    
+    // 过滤后的 notes:不区分大小写,本地内存过滤，性能极好
+    private var filteredNotes: [Note] {
+        if searchText.isEmpty {
+            return notes
+        } else {
+            return notes.filter { note in
+                note.title.localizedCaseInsensitiveContains(searchText) ||
+                note.content.localizedCaseInsensitiveContains(searchText) ||
+                (note.summary?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                note.tags.contains { $0.localizedCaseInsensitiveContains(searchText) }
+            }
+        }
+    }
+    
+    // 无搜索结果时的友好提示 UI
+    private var searchEmptyView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 40))
+                .foregroundColor(.secondary.opacity(0.5))
+
+            Text("未找到相关笔记")
+                .font(.headline)
+
+            Text("尝试其他关键词")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 60)
+    }
+
+
 }
 
 // MARK: - 笔记行视图
