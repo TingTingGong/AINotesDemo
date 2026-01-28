@@ -2,6 +2,8 @@
 //  AIService.swift
 //  AI服务封装 - 包含Whisper转录和GPT/Gemini摘要生成
 //
+//  Created by 宫廷 on 2026/1/27.
+//
 
 import Foundation
 

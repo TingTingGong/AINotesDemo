@@ -2,6 +2,8 @@
 //  NoteDetailView.swift
 //  笔记详情页 - 查看和编辑笔记
 //
+//  Created by 宫廷 on 2026/1/27.
+//
 
 import SwiftUI
 import SwiftData

@@ -2,6 +2,8 @@
 //  RecordingView.swift
 //  录音界面 - 包含录音、转录、AI处理
 //
+//  Created by 宫廷 on 2026/1/27.
+//
 
 import SwiftUI
 import AVFoundation
@@ -274,7 +276,7 @@ struct RecordingView: View {
                 processingStep = "正在生成摘要..."
             }
             
-            // 2. 生成摘要和标签
+            // 2. 生成标题和摘要和标签
             let aISummaryResult = try await AIService.shared.generateSummary(content: transcription)
             
             // 3. 保存笔记

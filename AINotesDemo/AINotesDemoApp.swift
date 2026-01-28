@@ -3,7 +3,7 @@
 //  AINotesDemo
 //
 //  核心功能演示版本
-//  包含：录音、转录、AI摘要、笔记管理
+//  包含：录音、转录、AI摘要、笔记管理，搜索
 //  Created by 宫廷 on 2026/1/27.
 //
 
@@ -24,17 +24,21 @@ struct AINotesDemoApp: App {
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Note.timestamp, order: .reverse) private var notes: [Note]
+    @State private var showingInputMethodSelection = false
     @State private var showingRecorder = false
     @State private var selectedNote: Note?
-    
     @State private var searchText = ""
     
     var body: some View {
         NavigationStack {
             ZStack {
                 // 笔记列表
-                if notes.isEmpty {
-                    emptyStateView
+                if filteredNotes.isEmpty {
+                    if searchText.isEmpty {
+                        emptyStateView
+                    } else {
+                        searchEmptyView
+                    }
                 } else {
                     notesList
                 }
@@ -56,6 +60,9 @@ struct ContentView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "搜索笔记标题、内容、标签"
             )
+            .sheet(isPresented: $showingInputMethodSelection) {
+                InputMethodSelectionView(modelContext: modelContext)
+            }
             .sheet(isPresented: $showingRecorder) {
                 RecordingView(modelContext: modelContext)
             }
@@ -82,37 +89,43 @@ struct ContentView: View {
         }
     }
     
+    // 搜索空状态视图
+    private var searchEmptyView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 80))
+                .foregroundColor(.gray.opacity(0.3))
+            
+            Text("未找到相关笔记")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("尝试其他关键词")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+    
     // 笔记列表
     private var notesList: some View {
-        Group {
-            if filteredNotes.isEmpty {
-                searchEmptyView
-            } else {
-                List {
-                    ForEach(filteredNotes) { note in
-                        NoteRowView(note: note)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                selectedNote = note
-                            }
+        List {
+            ForEach(filteredNotes) { note in
+                NoteRowView(note: note)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedNote = note
                     }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            let note = filteredNotes[index]
-                            modelContext.delete(note)
-                        }
-                    }
-                }
-                .listStyle(.insetGrouped)
             }
+            .onDelete(perform: deleteNotes)
         }
+        .listStyle(.insetGrouped)
     }
 
     
     // 录音按钮
     private var recordButton: some View {
         Button(action: {
-            showingRecorder = true
+            showingInputMethodSelection = true
         }) {
             Image(systemName: "plus.circle.fill")
                 .font(.system(size: 60))
@@ -129,12 +142,11 @@ struct ContentView: View {
     // 删除笔记
     private func deleteNotes(at offsets: IndexSet) {
         for index in offsets {
-            let note = filteredNotes[index]
-            modelContext.delete(notes[index])
+            modelContext.delete(filteredNotes[index])
         }
     }
     
-    // 过滤后的 notes:不区分大小写,本地内存过滤，性能极好
+    // 过滤笔记（搜索功能核心）不区分大小写,本地内存过滤，性能极好
     private var filteredNotes: [Note] {
         if searchText.isEmpty {
             return notes
@@ -147,24 +159,6 @@ struct ContentView: View {
             }
         }
     }
-    
-    // 无搜索结果时的友好提示 UI
-    private var searchEmptyView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 40))
-                .foregroundColor(.secondary.opacity(0.5))
-
-            Text("未找到相关笔记")
-                .font(.headline)
-
-            Text("尝试其他关键词")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .padding(.top, 60)
-    }
-
 
 }
 
