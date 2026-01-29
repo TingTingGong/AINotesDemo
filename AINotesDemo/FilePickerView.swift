@@ -246,8 +246,9 @@ struct FilePickerView: View {
             
             // 6. 保存笔记
             await MainActor.run {
+                let title = generateTitle(from: transcription)
                 let note = Note(
-                    title: aISummaryResult.title,
+                    title: title,
                     content: transcription,
                     summary: aISummaryResult.summary,
                     tags: aISummaryResult.tags,
@@ -301,8 +302,7 @@ struct FilePickerView: View {
     }
     
     // 生成标题
-    private func generateTitle(from content: String, fileName: String) -> String {
-        // 尝试从内容生成标题
+    private func generateTitle(from content: String) -> String {
         let words = content.components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
         
@@ -310,12 +310,27 @@ struct FilePickerView: View {
             return words.prefix(5).joined(separator: " ") + "..."
         } else if !words.isEmpty {
             return words.joined(separator: " ")
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            return "笔记 \(formatter.string(from: Date()))"
         }
-        
-        // 如果内容为空，使用文件名
-        let nameWithoutExtension = fileName.components(separatedBy: ".").first ?? fileName
-        return nameWithoutExtension
     }
+//    private func generateTitle(from content: String, fileName: String) -> String {
+//        // 尝试从内容生成标题
+//        let words = content.components(separatedBy: .whitespacesAndNewlines)
+//            .filter { !$0.isEmpty }
+//        
+//        if words.count > 5 {
+//            return words.prefix(5).joined(separator: " ") + "..."
+//        } else if !words.isEmpty {
+//            return words.joined(separator: " ")
+//        }
+//        
+//        // 如果内容为空，使用文件名
+//        let nameWithoutExtension = fileName.components(separatedBy: ".").first ?? fileName
+//        return nameWithoutExtension
+//    }
 }
 
 // MARK: - 文档选择器

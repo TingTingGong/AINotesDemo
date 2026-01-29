@@ -276,16 +276,17 @@ struct RecordingView: View {
                 processingStep = "正在生成摘要..."
             }
             
-            // 2. 生成标题和摘要和标签
-            let aISummaryResult = try await AIService.shared.generateSummary(content: transcription)
+            // 2. 生成摘要和标签
+            let (summary, tags) = try await AIService.shared.generateSummary(content: transcription)
             
             // 3. 保存笔记
             await MainActor.run {
+                let title = generateTitle(from: transcription)
                 let note = Note(
-                    title: aISummaryResult.title,
+                    title: title,
                     content: transcription,
-                    summary: aISummaryResult.summary,
-                    tags: aISummaryResult.tags,
+                    summary: summary,
+                    tags: tags,
                     audioURL: audioURL.lastPathComponent
                 )
                 modelContext.insert(note)
@@ -304,18 +305,18 @@ struct RecordingView: View {
     }
     
     // 生成标题
-//    private func generateTitle(from content: String) -> String {
-//        let words = content.components(separatedBy: .whitespacesAndNewlines)
-//            .filter { !$0.isEmpty }
-//        
-//        if words.count > 5 {
-//            return words.prefix(5).joined(separator: " ") + "..."
-//        } else if !words.isEmpty {
-//            return words.joined(separator: " ")
-//        } else {
-//            let formatter = DateFormatter()
-//            formatter.dateFormat = "yyyy-MM-dd HH:mm"
-//            return "笔记 \(formatter.string(from: Date()))"
-//        }
-//    }
+    private func generateTitle(from content: String) -> String {
+        let words = content.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        if words.count > 5 {
+            return words.prefix(5).joined(separator: " ") + "..."
+        } else if !words.isEmpty {
+            return words.joined(separator: " ")
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            return "笔记 \(formatter.string(from: Date()))"
+        }
+    }
 }

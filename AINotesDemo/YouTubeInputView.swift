@@ -221,7 +221,7 @@ struct YouTubeInputView: View {
             await MainActor.run {
                 let title = "YouTube: " + (extractVideoTitle(from: transcription) ?? "视频笔记")
                 let note = Note(
-                    title: aISummaryResult.title,
+                    title: title,
                     content: transcription,
                     summary: aISummaryResult.summary,
                     tags: aISummaryResult.tags,
