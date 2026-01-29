@@ -303,19 +303,27 @@ struct FilePickerView: View {
     
     // 生成标题
     private func generateTitle(from content: String) -> String {
-        let words = content.components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-        
-        if words.count > 5 {
-            return words.prefix(5).joined(separator: " ") + "..."
-        } else if !words.isEmpty {
-            return words.joined(separator: " ")
-        } else {
+        // 去除多余的空格
+        let content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 如果内容为空，返回当前时间
+        if content.isEmpty {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd HH:mm"
             return "笔记 \(formatter.string(from: Date()))"
         }
+        
+        // 中文文本按字符切割
+        let words = Array(content)
+
+        // 如果字符数量大于5，截取前5个字符并加上省略号
+        if words.count > 5 {
+            return String(words.prefix(5)) + "..."
+        } else {
+            return String(words)
+        }
     }
+
 //    private func generateTitle(from content: String, fileName: String) -> String {
 //        // 尝试从内容生成标题
 //        let words = content.components(separatedBy: .whitespacesAndNewlines)

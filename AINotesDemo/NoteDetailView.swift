@@ -41,6 +41,7 @@ struct NoteDetailView: View {
     @State private var editedContent: String = ""
     @State private var editedSummary: String = ""
     @State private var showDeleteAlert = false
+    @State private var showStructuredNoteGenerator = false
     
     @State private var showShare = false
     @State private var shareText: String?
@@ -96,6 +97,12 @@ struct NoteDetailView: View {
                             Label(isEditing ? "完成编辑" : "编辑", systemImage: isEditing ? "checkmark" : "pencil")
                         }
                         
+                        Button(action: {
+                            showStructuredNoteGenerator = true
+                        }) {
+                            Label("生成结构化笔记", systemImage: "wand.and.stars")
+                        }
+                        
                         Button(role: .destructive, action: {
                             showDeleteAlert = true
                         }) {
@@ -121,8 +128,11 @@ struct NoteDetailView: View {
                 }
             } message: {
                 Text("确定要删除这条笔记吗？此操作无法撤销。")
+            }.sheet(isPresented: $showStructuredNoteGenerator) {
+                StructuredNoteGeneratorView(originalContent: note.content)
             }
-        }.sheet(item: $shareText) { text in
+        }
+        .sheet(item: $shareText) { text in
             ActivityView(activityItems: [text])
         }
     }
@@ -298,56 +308,55 @@ struct NoteDetailView: View {
                 }
 }
 
-// MARK: - FlowLayout 自定义布局
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = FlowResult(
-            in: proposal.replacingUnspecifiedDimensions().width,
-            subviews: subviews,
-            spacing: spacing
-        )
-        return result.size
-    }
-    
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = FlowResult(
-            in: bounds.width,
-            subviews: subviews,
-            spacing: spacing
-        )
-        for (index, subview) in subviews.enumerated() {
-            subview.place(at: CGPoint(x: bounds.minX + result.frames[index].minX,
-                                     y: bounds.minY + result.frames[index].minY),
-                         proposal: .unspecified)
-        }
-    }
-    
-    struct FlowResult {
-        var frames: [CGRect] = []
-        var size: CGSize = .zero
-        
-        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
-            var currentX: CGFloat = 0
-            var currentY: CGFloat = 0
-            var lineHeight: CGFloat = 0
-            
-            for subview in subviews {
-                let size = subview.sizeThatFits(.unspecified)
-                
-                if currentX + size.width > maxWidth && currentX > 0 {
-                    currentX = 0
-                    currentY += lineHeight + spacing
-                    lineHeight = 0
-                }
-                
-                frames.append(CGRect(x: currentX, y: currentY, width: size.width, height: size.height))
-                lineHeight = max(lineHeight, size.height)
-                currentX += size.width + spacing
-            }
-            
-            self.size = CGSize(width: maxWidth, height: currentY + lineHeight)
-        }
-    }
-}
+//struct FlowLayout: Layout {
+//    var spacing: CGFloat = 8
+//    
+//    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+//        let result = FlowResult(
+//            in: proposal.replacingUnspecifiedDimensions().width,
+//            subviews: subviews,
+//            spacing: spacing
+//        )
+//        return result.size
+//    }
+//    
+//    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+//        let result = FlowResult(
+//            in: bounds.width,
+//            subviews: subviews,
+//            spacing: spacing
+//        )
+//        for (index, subview) in subviews.enumerated() {
+//            subview.place(at: CGPoint(x: bounds.minX + result.frames[index].minX,
+//                                     y: bounds.minY + result.frames[index].minY),
+//                         proposal: .unspecified)
+//        }
+//    }
+//    
+//    struct FlowResult {
+//        var frames: [CGRect] = []
+//        var size: CGSize = .zero
+//        
+//        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
+//            var currentX: CGFloat = 0
+//            var currentY: CGFloat = 0
+//            var lineHeight: CGFloat = 0
+//            
+//            for subview in subviews {
+//                let size = subview.sizeThatFits(.unspecified)
+//                
+//                if currentX + size.width > maxWidth && currentX > 0 {
+//                    currentX = 0
+//                    currentY += lineHeight + spacing
+//                    lineHeight = 0
+//                }
+//                
+//                frames.append(CGRect(x: currentX, y: currentY, width: size.width, height: size.height))
+//                lineHeight = max(lineHeight, size.height)
+//                currentX += size.width + spacing
+//            }
+//            
+//            self.size = CGSize(width: maxWidth, height: currentY + lineHeight)
+//        }
+//    }
+//}

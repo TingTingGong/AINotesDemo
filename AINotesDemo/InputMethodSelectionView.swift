@@ -15,6 +15,7 @@ struct InputMethodSelectionView: View {
     @State private var showingRecorder = false
     @State private var showingYouTubeInput = false
     @State private var showingFilePicker = false
+    @State private var showingDocumentImport = false
     
     var body: some View {
         NavigationStack {
@@ -63,6 +64,16 @@ struct InputMethodSelectionView: View {
                     ) {
                         showingFilePicker = true
                     }
+                    
+                    // 文档导入选项
+                    InputMethodButton(
+                        icon: "doc.circle.fill",
+                        title: "Import Document",
+                        subtitle: "导入文档并结构化",
+                        color: .purple
+                    ) {
+                        showingDocumentImport = true
+                    }
                 }
                 .padding(.horizontal, 20)
                 
@@ -88,6 +99,9 @@ struct InputMethodSelectionView: View {
             }
             .sheet(isPresented: $showingFilePicker) {
                 FilePickerView(modelContext: modelContext)
+            }
+            .sheet(isPresented: $showingDocumentImport) {
+                DocumentImportView(modelContext: modelContext)
             }
         }
     }
