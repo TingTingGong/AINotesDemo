@@ -2,6 +2,8 @@
 //  StructuredNoteService.swift
 //  结构化笔记生成服务
 //
+//  Created by 宫廷 on 2026/1/30.
+//
 
 import Foundation
 

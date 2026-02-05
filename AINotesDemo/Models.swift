@@ -32,11 +32,11 @@ final class Note {
 // MARK: - API配置
 struct APIConfig {
     // OpenAI 配置
-    static let openAIKey = "sk-gkjZSjikfIyIY4DbDb47B0B9EfCb4626A741B5C22d8874C6"
+    static let openAIKey = ""
     static let openAIBaseURL = "https://aihubmix.com/v1"
     
-    // Google Gemini 配置（可选）
-    static let geminiKey = "sk-gkjZSjikfIyIY4DbDb47B0B9EfCb4626A741B5C22d8874C6"
+    // Google Gemini 配置
+    static let geminiKey = ""
     static let geminiBaseURL = "https://aihubmix.com/v1"
     
     // 使用的模型

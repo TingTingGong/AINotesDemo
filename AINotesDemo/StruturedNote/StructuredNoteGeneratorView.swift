@@ -2,6 +2,8 @@
 //  StructuredNoteGeneratorView.swift
 //  结构化笔记生成界面
 //
+//  Created by 宫廷 on 2026/1/30.
+//
 
 import SwiftUI
 

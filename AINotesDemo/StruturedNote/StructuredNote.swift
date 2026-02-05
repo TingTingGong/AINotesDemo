@@ -2,6 +2,8 @@
 //  StructuredNote.swift
 //  结构化笔记数据模型
 //
+//  Created by 宫廷 on 2026/1/30.
+//
 
 import Foundation
 
