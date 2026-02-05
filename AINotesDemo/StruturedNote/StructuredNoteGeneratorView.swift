@@ -6,9 +6,13 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct StructuredNoteGeneratorView: View {
     let originalContent: String
+    let modelContext: ModelContext
+    let onNoteSaved: ((Note) -> Void)? // 保存成功后的回调
+    
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedFormat: StructuredNoteFormat = .outline
@@ -16,7 +20,7 @@ struct StructuredNoteGeneratorView: View {
     @State private var structuredNote: StructuredNoteResponse?
     @State private var showError = false
     @State private var errorMessage = ""
-    @State private var showPreview = false
+    @State private var isSaving = false
     
     var body: some View {
         NavigationStack {
@@ -30,6 +34,10 @@ struct StructuredNoteGeneratorView: View {
                 if isGenerating {
                     generatingOverlay
                 }
+                
+                if isSaving {
+                    savingOverlay
+                }
             }
             .navigationTitle("结构化笔记")
             .navigationBarTitleDisplayMode(.inline)
@@ -38,14 +46,23 @@ struct StructuredNoteGeneratorView: View {
                     Button("取消") {
                         dismiss()
                     }
-                    .disabled(isGenerating)
+                    .disabled(isGenerating || isSaving)
                 }
                 
                 if structuredNote != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("重新生成") {
-                            structuredNote = nil
+                        Menu {
+                            Button(action: saveStructuredNote) {
+                                Label("保存笔记", systemImage: "square.and.arrow.down")
+                            }
+                            
+                            Button(action: { structuredNote = nil }) {
+                                Label("重新生成", systemImage: "arrow.clockwise")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
                         }
+                        .disabled(isSaving)
                     }
                 }
             }
@@ -116,7 +133,26 @@ struct StructuredNoteGeneratorView: View {
     private var previewView: some View {
         Group {
             if let structured = structuredNote {
-                StructuredNoteView(structured: structured, format: selectedFormat)
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 顶部保存提示
+                        HStack {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundColor(.blue)
+                            Text("预览生成结果，点击右上角保存")
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        
+                        // 结构化笔记内容
+                        StructuredNoteContentView(
+                            structured: structured,
+                            format: selectedFormat
+                        )
+                    }
+                }
             }
         }
     }
@@ -139,6 +175,27 @@ struct StructuredNoteGeneratorView: View {
                 Text("识别关键信息并重新组织结构")
                     .foregroundColor(.white.opacity(0.8))
                     .font(.subheadline)
+            }
+            .padding(40)
+            .background(Color.black.opacity(0.8))
+            .cornerRadius(20)
+        }
+    }
+    
+    // MARK: - 保存中遮罩
+    private var savingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
+                
+                Text("正在保存...")
+                    .foregroundColor(.white)
+                    .font(.headline)
             }
             .padding(40)
             .background(Color.black.opacity(0.8))
@@ -172,6 +229,51 @@ struct StructuredNoteGeneratorView: View {
             await MainActor.run {
                 isGenerating = false
                 errorMessage = "生成失败: \(error.localizedDescription)"
+                showError = true
+            }
+        }
+    }
+    
+    // MARK: - 保存结构化笔记
+    private func saveStructuredNote() {
+        guard let structured = structuredNote else { return }
+        
+        Task {
+            await performSave(structured: structured)
+        }
+    }
+    
+    private func performSave(structured: StructuredNoteResponse) async {
+        await MainActor.run {
+            isSaving = true
+        }
+        
+        // 创建新的笔记对象
+        let note = Note(
+            title: structured.title,
+            content: originalContent, // 保留原始内容
+            summary: structured.summary,
+            tags: structured.tags
+        )
+        
+        // 设置结构化数据
+        note.setStructuredNote(structured, format: selectedFormat)
+        
+        // 保存到数据库
+        modelContext.insert(note)
+        
+        do {
+            try modelContext.save()
+            
+            await MainActor.run {
+                isSaving = false
+                onNoteSaved?(note)
+                dismiss()
+            }
+        } catch {
+            await MainActor.run {
+                isSaving = false
+                errorMessage = "保存失败: \(error.localizedDescription)"
                 showError = true
             }
         }
@@ -226,70 +328,224 @@ struct FormatOptionCard: View {
     }
 }
 
-// MARK: - 推荐格式提示
-struct FormatRecommendationView: View {
+// MARK: - 结构化笔记内容视图（用于预览）
+struct StructuredNoteContentView: View {
+    let structured: StructuredNoteResponse
+    let format: StructuredNoteFormat
+    @State private var expandedSections: Set<String> = []
+    
     var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // 标题
+            Text(structured.title)
+                .font(.title)
+                .fontWeight(.bold)
+                .padding(.horizontal)
+                .padding(.top)
+            
+            // 元数据
+            if hasMetadata {
+                metadataSection
+                    .padding(.horizontal)
+            }
+            
+            Divider()
+            
+            // 摘要
+            summarySection
+                .padding(.horizontal)
+            
+            // 关键要点
+            if !structured.keyPoints.isEmpty {
+                keyPointsSection
+                    .padding(.horizontal)
+            }
+            
+            Divider()
+            
+            // 详细内容
+            contentSections
+                .padding(.horizontal)
+            
+            // 行动项
+            if !structured.actionItems.isEmpty {
+                actionItemsSection
+                    .padding(.horizontal)
+            }
+            
+            // 标签
+            if !structured.tags.isEmpty {
+                tagsSection
+                    .padding(.horizontal)
+            }
+        }
+        .padding(.bottom)
+    }
+    
+    // MARK: - 元数据部分
+    private var hasMetadata: Bool {
+        !(structured.metadata.participants?.isEmpty ?? true) ||
+        structured.metadata.location != nil ||
+        structured.metadata.duration != nil
+    }
+    
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.blue)
+                Text("会议信息")
+                    .font(.headline)
+            }
+            
+            if let participants = structured.metadata.participants, !participants.isEmpty {
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .foregroundColor(.secondary)
+                        .frame(width: 20)
+                    Text("参会人员：\(participants.joined(separator: ", "))")
+                        .font(.subheadline)
+                }
+            }
+            
+            if let location = structured.metadata.location {
+                HStack {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(.secondary)
+                        .frame(width: 20)
+                    Text("地点：\(location)")
+                        .font(.subheadline)
+                }
+            }
+            
+            if let duration = structured.metadata.duration {
+                HStack {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(.secondary)
+                        .frame(width: 20)
+                    Text("时长：\(duration)分钟")
+                        .font(.subheadline)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+    
+    // MARK: - 摘要部分
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.blue)
+                Text("核心摘要")
+                    .font(.headline)
+            }
+            
+            Text(structured.summary)
+                .font(.body)
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.05))
+                .cornerRadius(8)
+        }
+    }
+    
+    // MARK: - 关键要点部分
+    private var keyPointsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "lightbulb.fill")
-                    .foregroundColor(.yellow)
-                Text("格式推荐")
+                Image(systemName: "star.fill")
+                    .foregroundColor(.orange)
+                Text("关键要点")
                     .font(.headline)
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                RecommendationRow(
-                    scenario: "会议记录",
-                    format: "项目管理式",
-                    reason: "决策、分工清晰"
-                )
-                
-                RecommendationRow(
-                    scenario: "学习笔记",
-                    format: "大纲式/康奈尔",
-                    reason: "知识层次分明"
-                )
-                
-                RecommendationRow(
-                    scenario: "头脑风暴",
-                    format: "思维导图式",
-                    reason: "想法发散关联"
+                ForEach(Array(structured.keyPoints.enumerated()), id: \.offset) { index, point in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("\(index + 1).")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                        
+                        Text(point)
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.05))
+            .cornerRadius(8)
+        }
+    }
+    
+    // MARK: - 内容章节
+    private var contentSections: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "doc.text.fill")
+                    .foregroundColor(.green)
+                Text("详细内容")
+                    .font(.headline)
+            }
+            
+            ForEach(structured.sections) { section in
+                SectionCard(
+                    section: section,
+                    isExpanded: expandedSections.contains(section.id),
+                    onToggle: {
+                        if expandedSections.contains(section.id) {
+                            expandedSections.remove(section.id)
+                        } else {
+                            expandedSections.insert(section.id)
+                        }
+                    }
                 )
             }
         }
-        .padding()
-        .background(Color.yellow.opacity(0.05))
-        .cornerRadius(12)
     }
-}
-
-struct RecommendationRow: View {
-    let scenario: String
-    let format: String
-    let reason: String
     
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("•")
-                .foregroundColor(.yellow)
+    // MARK: - 行动项部分
+    private var actionItemsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "checklist")
+                    .foregroundColor(.red)
+                Text("行动项")
+                    .font(.headline)
+            }
             
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(scenario)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    
-                    Text("→")
-                        .foregroundColor(.secondary)
-                    
-                    Text(format)
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
+            VStack(spacing: 8) {
+                ForEach(structured.actionItems) { action in
+                    ActionItemCard(action: action)
                 }
-                
-                Text(reason)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    // MARK: - 标签部分
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "tag.fill")
+                    .foregroundColor(.purple)
+                Text("标签")
+                    .font(.headline)
+            }
+            
+            FlowLayout(spacing: 8) {
+                ForEach(structured.tags, id: \.self) { tag in
+                    Text("#\(tag)")
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.purple.opacity(0.1))
+                        .foregroundColor(.purple)
+                        .cornerRadius(16)
+                }
             }
         }
     }

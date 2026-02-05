@@ -18,7 +18,12 @@ final class Note {
     var tags: [String]
     var audioURL: String?
     
-    init(title: String, content: String, summary: String? = nil, tags: [String] = [], audioURL: String? = nil) {
+    // 结构化笔记相关字段
+    var isStructured: Bool
+    var structuredFormat: String? // 保存格式类型
+    var structuredData: Data? // 保存完整的 StructuredNoteResponse JSON
+    
+    init(title: String, content: String, summary: String? = nil, tags: [String] = [], audioURL: String? = nil, isStructured: Bool = false, structuredFormat: String? = nil, structuredData: Data? = nil) {
         self.id = UUID()
         self.title = title
         self.content = content
@@ -26,17 +31,38 @@ final class Note {
         self.timestamp = Date()
         self.tags = tags
         self.audioURL = audioURL
+        self.isStructured = isStructured
+        self.structuredFormat = structuredFormat
+        self.structuredData = structuredData
+    }
+    
+    // 辅助方法：获取结构化笔记对象
+    func getStructuredNote() -> StructuredNoteResponse? {
+        guard let data = structuredData else { return nil }
+        return try? JSONDecoder().decode(StructuredNoteResponse.self, from: data)
+    }
+    
+    // 辅助方法：保存结构化笔记对象
+    func setStructuredNote(_ structured: StructuredNoteResponse, format: StructuredNoteFormat) {
+        self.isStructured = true
+        self.structuredFormat = format.rawValue
+        self.structuredData = try? JSONEncoder().encode(structured)
+        
+        // 同步基本信息
+        self.title = structured.title
+        self.summary = structured.summary
+        self.tags = structured.tags
     }
 }
 
 // MARK: - API配置
 struct APIConfig {
     // OpenAI 配置
-    static let openAIKey = ""
+    static let openAIKey = "sk-j8QFNG6rl2YwAuAa6eBeF4D305E845A98e8dB0D9234f21F3"
     static let openAIBaseURL = "https://aihubmix.com/v1"
     
     // Google Gemini 配置
-    static let geminiKey = ""
+    static let geminiKey = "sk-j8QFNG6rl2YwAuAa6eBeF4D305E845A98e8dB0D9234f21F3"
     static let geminiBaseURL = "https://aihubmix.com/v1"
     
     // 使用的模型

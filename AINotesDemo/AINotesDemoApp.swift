@@ -72,7 +72,7 @@ struct ContentView: View {
         }
     }
     
-    // 空状态视图
+    // MARK: - 空状态视图
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "mic.fill")
@@ -89,7 +89,7 @@ struct ContentView: View {
         }
     }
     
-    // 搜索空状态视图
+    // MARK: - 搜索空状态视图
     private var searchEmptyView: some View {
         VStack(spacing: 20) {
             Image(systemName: "doc.text.magnifyingglass")
@@ -106,11 +106,11 @@ struct ContentView: View {
         }
     }
     
-    // 笔记列表
+    // MARK: - 笔记列表
     private var notesList: some View {
         List {
             ForEach(filteredNotes) { note in
-                NoteRowView(note: note)
+                NoteListItemView(note: note)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         selectedNote = note
@@ -120,9 +120,8 @@ struct ContentView: View {
         }
         .listStyle(.insetGrouped)
     }
-
     
-    // 录音按钮
+    // MARK: - 录音按钮
     private var recordButton: some View {
         Button(action: {
             showingInputMethodSelection = true
@@ -139,14 +138,14 @@ struct ContentView: View {
         }
     }
     
-    // 删除笔记
+    // MARK: - 删除笔记
     private func deleteNotes(at offsets: IndexSet) {
         for index in offsets {
             modelContext.delete(filteredNotes[index])
         }
     }
     
-    // 过滤笔记（搜索功能核心）不区分大小写,本地内存过滤，性能极好
+    // MARK: - 过滤笔记（搜索功能）
     private var filteredNotes: [Note] {
         if searchText.isEmpty {
             return notes
@@ -159,53 +158,151 @@ struct ContentView: View {
             }
         }
     }
-
 }
 
-// MARK: - 笔记行视图
-struct NoteRowView: View {
+// MARK: - 笔记列表项视图
+struct NoteListItemView: View {
     let note: Note
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(note.title)
-                .font(.headline)
-                .lineLimit(1)
+            // 标题行（包含结构化标识）
+            HStack {
+                Text(note.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                // 结构化笔记标识
+                if note.isStructured {
+                    HStack(spacing: 4) {
+                        Image(systemName: formatIcon)
+                            .font(.caption)
+                        Text(formatName)
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
             
+            // 摘要或内容预览
             if let summary = note.summary, !summary.isEmpty {
                 Text(summary)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
+            } else {
+                Text(note.content)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
             }
             
+            // 底部信息栏
             HStack {
-                Text(note.timestamp, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text(note.timestamp, style: .time)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
+                // 标签
                 if !note.tags.isEmpty {
                     HStack(spacing: 4) {
+                        Image(systemName: "tag.fill")
+                            .font(.caption2)
+                        
+                        // 最多显示2个标签
                         ForEach(note.tags.prefix(2), id: \.self) { tag in
                             Text(tag)
                                 .font(.caption2)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
+                        }
+                        
+                        // 如果标签超过2个，显示数量
+                        if note.tags.count > 2 {
+                            Text("+\(note.tags.count - 2)")
+                                .font(.caption2)
                         }
                     }
+                    .foregroundColor(.purple)
+                }
+                
+                Spacer()
+                
+                // 时间
+                HStack(spacing: 4) {
+                    Text(note.timestamp, style: .date)
+                        .font(.caption)
+                    Text(note.timestamp, style: .time)
+                        .font(.caption)
+                }
+                .foregroundColor(.secondary)
+                
+                // 音频标识
+                if note.audioURL != nil {
+                    Image(systemName: "mic.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
                 }
             }
         }
         .padding(.vertical, 4)
     }
+    
+    // MARK: - 格式化相关计算属性
+    
+    private var formatIcon: String {
+        guard let formatString = note.structuredFormat,
+              let format = StructuredNoteFormat(rawValue: formatString) else {
+            return "doc.text"
+        }
+        return format.icon
+    }
+    
+    private var formatName: String {
+        guard let formatString = note.structuredFormat,
+              let format = StructuredNoteFormat(rawValue: formatString) else {
+            return "结构化"
+        }
+        return format.rawValue
+    }
 }
 
+// MARK: - 预览
+#Preview {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Note.self, configurations: config)
+    let context = container.mainContext
+    
+    // 示例数据
+    let note1 = Note(
+        title: "普通会议记录",
+        content: "今天讨论了产品的下一步规划，包括功能优化和用户体验提升。团队一致认为应该优先处理用户反馈最多的问题。",
+        summary: "讨论产品规划和用户体验优化",
+        tags: ["会议", "产品"]
+    )
+    context.insert(note1)
+    
+    let note2 = Note(
+        title: "项目进度追踪",
+        content: "第一季度项目进展顺利...",
+        summary: "Q1项目完成度达到85%，按计划推进",
+        tags: ["项目", "进度", "重要"]
+    )
+    note2.isStructured = true
+    note2.structuredFormat = StructuredNoteFormat.project.rawValue
+    context.insert(note2)
+    
+    let note3 = Note(
+        title: "学习笔记：SwiftUI 状态管理",
+        content: "State、Binding、ObservableObject的使用场景...",
+        summary: "深入理解SwiftUI的状态管理机制",
+        tags: ["学习", "SwiftUI"],
+        audioURL: "recording.m4a"
+    )
+    note3.isStructured = true
+    note3.structuredFormat = StructuredNoteFormat.outline.rawValue
+    context.insert(note3)
+    
+    return ContentView()
+        .modelContainer(container)
+}
