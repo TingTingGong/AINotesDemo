@@ -13,7 +13,7 @@ class StructuredNoteService {
     
     // MARK: - 生成结构化笔记
     func generateStructuredNote(content: String, format: StructuredNoteFormat = .outline) async throws -> StructuredNoteResponse {
-        guard !APIConfig.openAIKey.isEmpty && APIConfig.openAIKey != "YOUR_OPENAI_API_KEY" else {
+        guard !APIConfig.openAIKey.isEmpty else {
             throw AIServiceError.invalidAPIKey
         }
         

@@ -88,7 +88,7 @@ struct StructuredNoteGeneratorView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text("AI将帮你把笔记内容重新组织成更清晰的结构")
+                    Text("AI将会把笔记内容重新组织成更清晰的结构")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)

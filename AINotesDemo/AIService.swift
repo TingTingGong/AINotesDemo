@@ -36,7 +36,7 @@ class AIService {
     
     // MARK: - Whisper 语音转文字
     func transcribeAudio(fileURL: URL) async throws -> String {
-        guard !APIConfig.openAIKey.isEmpty && APIConfig.openAIKey != "YOUR_OPENAI_API_KEY" else {
+        guard !APIConfig.openAIKey.isEmpty else {
             throw AIServiceError.invalidAPIKey
         }
         
@@ -92,7 +92,7 @@ class AIService {
     
     // MARK: - GPT 生成摘要
     func generateSummaryWithGPT(content: String) async throws -> (summary: String, tags: [String]) {
-        guard !APIConfig.openAIKey.isEmpty && APIConfig.openAIKey != "YOUR_OPENAI_API_KEY" else {
+        guard !APIConfig.openAIKey.isEmpty else {
             throw AIServiceError.invalidAPIKey
         }
         
